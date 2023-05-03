@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS auth_audit;
+DROP TYPE IF EXISTS event_type;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS users;
+
+-- DROP SCHEMA public CASCADE;
+-- CREATE SCHEMA public;
+-- DROP TYPE IF EXISTS event_type CASCADE;
