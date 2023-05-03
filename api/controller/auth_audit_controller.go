@@ -2,7 +2,9 @@ package controller
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	_ "time"
 
 	"github.com/gin-gonic/gin"
@@ -47,7 +49,7 @@ func (ac *AuthAuditController) GetAuditEvents(ctx *gin.Context) {
 		return
 	}
 
-	isValid, err := ac.Store.SessionRepo.CheckToken(ctx, token)
+	expirationTime, err := ac.Store.SessionRepo.CheckToken(ctx, token)
 	if err != nil {
 		if errors.Is(err, util.ErrNotFound) {
 			ctx.JSON(http.StatusUnauthorized, errorResponse("Invalid token"))
@@ -58,13 +60,12 @@ func (ac *AuthAuditController) GetAuditEvents(ctx *gin.Context) {
 		return
 	}
 
-	if !isValid {
-		ctx.JSON(http.StatusUnauthorized, errorResponse("Invalid token"))
+	userIDStr, err := util.ExtractIDFromToken(token, expirationTime.String())
+	if err != nil {
+		ctx.JSON(http.StatusForbidden, errorResponse(err.Error()))
 		return
 	}
-
-	userID, err := util.ExtractUserIDFromToken(token, )
-	logrus.Printf("userID: %d", userID)
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err.Error()))
 		return
@@ -72,14 +73,16 @@ func (ac *AuthAuditController) GetAuditEvents(ctx *gin.Context) {
 
 	events, err := ac.Store.AuthAuditRepo.GetEvents(ctx, userID)
 	if err != nil {
+		//Think about this logic
 		if errors.Is(err, util.ErrNotFound) {
-			logrus.Printf("not found by id %d", userID)
+			logrus.Printf("not found by user id %d", userID)
 			ctx.JSON(http.StatusOK, AuditResponse{
 				AuditEvents: []db.AuditEvent{},
 			})
 			return
 		}
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err.Error()))
+		logrus.Errorf("failed to get events by user id %d: %v", userID, err)
+		ctx.JSON(http.StatusInternalServerError, errorResponse(fmt.Sprintf("failed to get events by user id %d", userID)))
 		return
 	}
 
@@ -108,7 +111,7 @@ func (ac *AuthAuditController) ClearAudit(ctx *gin.Context) {
 		return
 	}
 
-	isValid, err := ac.Store.SessionRepo.CheckToken(ctx, token)
+	expirationTime, err := ac.Store.SessionRepo.CheckToken(ctx, token)
 	if err != nil {
 		if errors.Is(err, util.ErrNotFound) {
 			ctx.JSON(http.StatusUnauthorized, errorResponse("Invalid token"))
@@ -119,18 +122,18 @@ func (ac *AuthAuditController) ClearAudit(ctx *gin.Context) {
 		return
 	}
 
-	if !isValid {
-		ctx.JSON(http.StatusUnauthorized, errorResponse("Invalid token"))
+	userIDStr, err := util.ExtractIDFromToken(token, expirationTime.String())
+	if err != nil {
+		ctx.JSON(http.StatusForbidden, errorResponse(err.Error()))
 		return
 	}
-
-	userID, err := util.ExtractUserIDFromToken(token)
-	logrus.Printf("expirationTime: %s, userID: %d", userID)
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err.Error()))
 		return
 	}
 
+	//Clear audit of user by user id
 	err = ac.Store.AuthAuditRepo.ClearAuditByUserID(ctx, userID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err.Error()))

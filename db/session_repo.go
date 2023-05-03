@@ -21,21 +21,20 @@ func (sr *SessionRepo) SaveToken(ctx context.Context, token string, expirationTi
 	return err
 }
 
-func (sr *SessionRepo) CheckToken(ctx context.Context, token string) (bool, error) {
-	var isValid bool
+func (sr *SessionRepo) CheckToken(ctx context.Context, token string) (time.Time, error) {
+	var expirationTime time.Time
 	err := sr.db.QueryRowContext(ctx, `
-	SELECT EXISTS (
-		SELECT 1
-		FROM sessions
-		WHERE token = $1 AND expiration_time > NOW()
-	);
-	`, token).Scan(&isValid)
+	SELECT expiration_time
+	FROM sessions
+	WHERE token = $1 AND expiration_time > NOW()
+	LIMIT 1;
+	`, token).Scan(&expirationTime)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return false, util.ErrNotFound
+			return time.Time{}, util.ErrNotFound
 		}
-		return false, err
+		return time.Time{}, err
 	}
 
-	return isValid, nil
+	return expirationTime, nil
 }

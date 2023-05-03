@@ -1,11 +1,12 @@
 package db
 
 import (
-	"app/internal/util"
 	"context"
 	"database/sql"
 	"errors"
 	"time"
+
+	"app/internal/util"
 )
 
 type AuthAuditRepo struct {
@@ -44,7 +45,7 @@ func (aar *AuthAuditRepo) WriteEvent(ctx context.Context, userID int64, event Ev
 
 func (aar *AuthAuditRepo) GetEvents(ctx context.Context, userID int64) ([]AuditEvent, error) {
 	rows, err := aar.db.QueryContext(ctx, `
-	SELECT * 
+	SELECT event, event_time
 	FROM auth_audit
 	WHERE user_id = $1
 	ORDER BY event_time
@@ -57,16 +58,16 @@ func (aar *AuthAuditRepo) GetEvents(ctx context.Context, userID int64) ([]AuditE
 	}
 	defer rows.Close()
 
-	events := make([]AuditEvent, 0)
+	var events []AuditEvent
 	for rows.Next() {
-		var i AuditEvent
+		var item AuditEvent
 		if err := rows.Scan(
-			&i.Datatime,
-			&i.Event,
+			&item.Event,
+			&item.Datatime,
 		); err != nil {
 			return nil, err
 		}
-		events = append(events, i)
+		events = append(events, item)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

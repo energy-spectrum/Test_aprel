@@ -103,8 +103,14 @@ func (ac *AuthController) Authorize(ctx *gin.Context) {
 	const lifetime = time.Hour * 24 * 7
 	expirationTime := time.Now().Add(lifetime)
 	expirationTime = expirationTime.Truncate(100 * time.Microsecond)
-	logrus.Printf("userID: %d", userID)
-	token := util.CreateToken(userID, expirationTime.String())
+	//logrus.Printf("userID: %d, expirationTime: %s", userID, expirationTime.String())
+	token,err := util.CreateAccessToken(userID, expirationTime.String(), ac.Env.TokenExpiryHour)
+	if err != nil {
+		logrus.Errorf("failed to create access token: %v", err)
+		ctx.JSON(http.StatusInternalServerError, "Failed to create access token")
+		return
+	}
+	//Save access token
 	err = ac.Store.SessionRepo.SaveToken(ctx, token, expirationTime)
 	if err != nil {
 		logrus.Errorf("failed to save token: %v", err.Error())

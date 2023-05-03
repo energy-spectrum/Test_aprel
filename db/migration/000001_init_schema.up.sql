@@ -7,7 +7,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE sessions (
-  token VARCHAR(32) PRIMARY KEY UNIQUE,
+  token TEXT PRIMARY KEY,
   expiration_time timestamptz NOT NULL
 );
 
