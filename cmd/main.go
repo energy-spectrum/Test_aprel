@@ -19,6 +19,7 @@ import (
 	route "app/api/route"
 	"app/bootstrap"
 	"app/db"
+	"app/db/migration"
 )
 
 // @title           Auth API
@@ -28,17 +29,17 @@ import (
 // @BasePath        /v1
 // @securityDefinitions.apiKey ApiKeyAuth
 // @in header
-// @name Authorization
+// @name X-Token
 func main() {
 	logrus.SetFormatter(new(logrus.JSONFormatter))
 	logrus.SetReportCaller(true)
 
-    logrus.SetFormatter(&logrus.TextFormatter{
-        CallerPrettyfier: func(f *runtime.Frame) (string, string) {
-            _, filename := path.Split(f.File)
-            filename = fmt.Sprintf("%s:%d", filename, f.Line)
-            return "", filename
-        },
+	logrus.SetFormatter(&logrus.TextFormatter{
+		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+			_, filename := path.Split(f.File)
+			filename = fmt.Sprintf("%s:%d", filename, f.Line)
+			return "", filename
+		},
 	})
 	env := bootstrap.NewEnv()
 
@@ -47,6 +48,8 @@ func main() {
 	DBName := env.DBDriver
 	runDBMigration(db, DBName, env.MigrationURL)
 
+	// fill table users
+	migration.FillUsers(store)
 	//LOOK
 	timeout := time.Duration(0) * time.Second
 	runGinServer(env, timeout, store)
@@ -58,7 +61,7 @@ func connectToDB(env *bootstrap.Env) (*sql.DB, db.Store) {
 	if err != nil {
 		logrus.Fatalf("failed to connect to Postgresql: %v", err)
 	}
-	logrus.Infof("connected to Postgresql")
+	logrus.Printf("connected to Postgresql")
 
 	store := db.NewStore(conn)
 	return conn, store
@@ -102,5 +105,5 @@ func runGinServer(env *bootstrap.Env, timeout time.Duration, store db.Store) {
 
 func connectSwaggerToGin(ginEngine *gin.Engine) {
 	// Serve the Swagger UI files
-	ginEngine.Static("/swagger/", "./doc/swagger")
+	ginEngine.Static("/swagger/", "./doc")
 }

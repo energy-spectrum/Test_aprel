@@ -1,0 +1,180 @@
+basePath: /v1
+definitions:
+  controller.AuthRequest:
+    properties:
+      login:
+        maxLength: 25
+        minLength: 2
+        type: string
+      password:
+        maxLength: 25
+        minLength: 2
+        type: string
+    required:
+    - login
+    - password
+    type: object
+  controller.AuthResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  controller.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  controller.GetAuthAuditResponse:
+    properties:
+      AuthAudit:
+        items:
+          $ref: '#/definitions/db.AuthAuditEvent'
+        type: array
+    type: object
+  controller.SuccessResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  db.AuthAuditEvent:
+    properties:
+      datatime:
+        type: string
+      event:
+        $ref: '#/definitions/db.EventType'
+    type: object
+  db.EventType:
+    enum:
+    - login
+    - invalid_password
+    - block
+    type: string
+    x-enum-varnames:
+    - Login
+    - InvalidPassword
+    - Block
+host: localhost:8080
+info:
+  contact: {}
+  description: Test of Aprel
+  title: Auth API
+  version: "1.0"
+paths:
+  /auth-audit/clear:
+    delete:
+      consumes:
+      - application/json
+      description: Clear auth audit of user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: ClearAuthAudit
+      tags:
+      - Auth-Audit
+  /auth-audit/history:
+    get:
+      consumes:
+      - application/json
+      description: Get auth audit of user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.GetAuthAuditResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: GetAuthAudit
+      tags:
+      - Auth-Audit
+  /auth/authorize:
+    post:
+      consumes:
+      - application/json
+      description: Authorize a user with login and password. Return token
+      parameters:
+      - description: User credentials (login and password)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controller.AuthRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controller.ErrorResponse'
+      summary: Authorize
+      tags:
+      - Auth
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: X-Token
+    type: apiKey
+swagger: "2.0"

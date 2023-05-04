@@ -12,11 +12,11 @@ type UserRepo struct {
 	db *sql.DB
 }
 
-func (ur *UserRepo) GetUserIDAndBlocked(ctx context.Context, login, password string) (int64, bool, error) {
-	var userID int64
+func (ur *UserRepo) GetUserIDAndBlocked(ctx context.Context, login, hashedPassword string) (int, bool, error) {
+	var userID int
 	var correctPassword bool
 	var blocked bool
-	err := ur.db.QueryRow(`
+	err := ur.db.QueryRowContext(ctx, `
 	SELECT
 		id,
 		blocked,
@@ -25,7 +25,7 @@ func (ur *UserRepo) GetUserIDAndBlocked(ctx context.Context, login, password str
 	WHERE login = $1
 	ORDER BY id DESC
 	LIMIT 1;
-    `, login, password).Scan(&userID, &blocked, &correctPassword)
+    `, login, hashedPassword).Scan(&userID, &blocked, &correctPassword)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, false, util.ErrNotFound
@@ -39,9 +39,9 @@ func (ur *UserRepo) GetUserIDAndBlocked(ctx context.Context, login, password str
 	return userID, blocked, nil
 }
 
-func (ur *UserRepo) IncrementFailedLoginAttempts(ctx context.Context, id int64) (int, error) {
+func (ur *UserRepo) IncrementFailedLoginAttempts(ctx context.Context, id int) (int, error) {
 	var failedLoginAttempts int
-	err := ur.db.QueryRow(`
+	err := ur.db.QueryRowContext(ctx, `
 	UPDATE users
 	SET failed_login_attempts = failed_login_attempts + 1
 	WHERE id = $1
@@ -54,9 +54,8 @@ func (ur *UserRepo) IncrementFailedLoginAttempts(ctx context.Context, id int64) 
 	return failedLoginAttempts, nil
 }
 
-
-func (ur *UserRepo) Block(ctx context.Context, id int64) error {
-	_, err := ur.db.ExecContext(ctx,`
+func (ur *UserRepo) Block(ctx context.Context, id int) error {
+	_, err := ur.db.ExecContext(ctx, `
 	UPDATE users
 	SET blocked = true
 	WHERE id = $1;
@@ -66,4 +65,13 @@ func (ur *UserRepo) Block(ctx context.Context, id int64) error {
 	}
 
 	return nil
+}
+
+func (ur *UserRepo) Create(ctx context.Context, login, password string) error {
+	_, err := ur.db.ExecContext(ctx, `
+	INSERT INTO users (login, password)
+	VALUES ($1, $2)
+	`, login, password)
+
+	return err
 }

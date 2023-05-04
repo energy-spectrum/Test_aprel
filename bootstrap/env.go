@@ -13,9 +13,10 @@ type Env struct {
 
 	MigrationURL string `mapstructure:"MIGRATION_URL"`
 
-	ServerAddress         string `mapstructure:"SERVER_ADDRESS"`
+	ServerAddress string `mapstructure:"SERVER_ADDRESS"`
 	//ContextTimeout        int    `mapstructure:"CONTEXT_TIMEOUT"`
-	TokenExpiryHour int    `mapstructure:"TOKEN_EXPIRY_HOUR"`
+	TokenExpiryHour        int `mapstructure:"TOKEN_EXPIRY_HOUR"`
+	MaxFailedLoginAttempts int `mapstructure:"MAX_FAILED_LOGIN_ATTEMPTS"`
 }
 
 func NewEnv() *Env {
@@ -24,16 +25,16 @@ func NewEnv() *Env {
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		logrus.Fatal("Can't find the file .env: %v", err)
+		logrus.Fatal("can't find the file .env: %v", err)
 	}
 
 	err = viper.Unmarshal(&env)
 	if err != nil {
-		logrus.Fatal("Environment can't be loaded: %v", err)
+		logrus.Fatal("environment can't be loaded: %v", err)
 	}
 
 	if env.AppEnv == "development" {
-		logrus.Println("The App is running in development env")
+		logrus.Println("the App is running in development env")
 	}
 
 	return &env

@@ -8,4 +8,6 @@ migratedown:
 migrateforce:
 	migrate -path db/migration -database "postgres://postgres:Lovego@localhost:5432/test_aprel?sslmode=disable" force 1
 	make migratedown
+swagger:
+	swag init -g ./cmd/main.go -o ./doc
 .phony: migrateup migratedown

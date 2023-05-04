@@ -2,9 +2,7 @@ package controller
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
-	"strconv"
 	_ "time"
 
 	"github.com/gin-gonic/gin"
@@ -21,35 +19,31 @@ type AuthAuditController struct {
 	Env   *bootstrap.Env
 }
 
-type AuditRequest struct {
-	Token string `form:"token" binding:"required"`
+type GetAuthAuditResponse struct {
+	AuthAudit []db.AuthAuditEvent `json:"AuthAudit"`
 }
 
-type AuditResponse struct {
-	AuditEvents []db.AuditEvent `json:"auditEvents"`
-}
-
-// @Summary Authorize
-// @Description Authenticate a user with login and password
-// @Tags Auth
+// @Summary GetAuthAudit
+// @Description Get auth audit of user
+// @Tags Auth-Audit
 // @Accept json
 // @Produce json
-// @Param login formData string true "login of the user"
-// @Param password formData string true "Password for the user account"
-// @Success 200 {object} AuthResponse
+// @Success 200 {object} GetAuthAuditResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /authorize [post]
-func (ac *AuthAuditController) GetAuditEvents(ctx *gin.Context) {
+// @Router /auth-audit/history [get]
+// @security ApiKeyAuth
+func (ac *AuthAuditController) GetAuthAudit(ctx *gin.Context) {
 	token := ctx.GetHeader("X-Token")
 	if token == "" {
 		ctx.JSON(http.StatusBadRequest, errorResponse("X-Token header is missing"))
 		return
 	}
 
-	expirationTime, err := ac.Store.SessionRepo.CheckToken(ctx, token)
+	userID, err := ac.Store.SessionRepo.GetUserID(ctx, token)
 	if err != nil {
 		if errors.Is(err, util.ErrNotFound) {
 			ctx.JSON(http.StatusUnauthorized, errorResponse("Invalid token"))
@@ -59,86 +53,64 @@ func (ac *AuthAuditController) GetAuditEvents(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err.Error()))
 		return
 	}
-
-	userIDStr, err := util.ExtractIDFromToken(token, expirationTime.String())
+	//Get auth audit of user
+	events, err := ac.Store.AuthAuditRepo.GetAuthAuditByUserID(ctx, userID)
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, errorResponse(err.Error()))
-		return
-	}
-	userID, err := strconv.ParseInt(userIDStr, 10, 64)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err.Error()))
-		return
-	}
-
-	events, err := ac.Store.AuthAuditRepo.GetEvents(ctx, userID)
-	if err != nil {
-		//Think about this logic
 		if errors.Is(err, util.ErrNotFound) {
-			logrus.Printf("not found by user id %d", userID)
-			ctx.JSON(http.StatusOK, AuditResponse{
-				AuditEvents: []db.AuditEvent{},
+			logrus.Printf("auth audit was not found by user id %d", userID)
+			ctx.JSON(http.StatusOK, GetAuthAuditResponse{
+				AuthAudit: []db.AuthAuditEvent{},
 			})
 			return
 		}
-		logrus.Errorf("failed to get events by user id %d: %v", userID, err)
-		ctx.JSON(http.StatusInternalServerError, errorResponse(fmt.Sprintf("failed to get events by user id %d", userID)))
+		logrus.Errorf("failed to get auth audit by user id %d: %v", userID, err)
+		ctx.JSON(http.StatusInternalServerError, errorResponse("failed toget auth audit by user id"))
 		return
 	}
 
-	ctx.JSON(http.StatusOK, AuditResponse{
-		AuditEvents: events,
+	ctx.JSON(http.StatusOK, GetAuthAuditResponse{
+		AuthAudit: events,
 	})
 }
 
-// @Summary Authorize
-// @Description Authenticate a user with login and password
-// @Tags Auth
+// @Summary ClearAuthAudit
+// @Description Clear auth audit of user
+// @Tags Auth-Audit
 // @Accept json
 // @Produce json
-// @Param login formData string true "login of the user"
-// @Param password formData string true "Password for the user account"
-// @Success 200 {object} AuthResponse
+// @Success 200 {object} SuccessResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /authorize [post]
-func (ac *AuthAuditController) ClearAudit(ctx *gin.Context) {
+// @Router /auth-audit/clear [delete]
+// @security ApiKeyAuth
+func (ac *AuthAuditController) ClearAuthAudit(ctx *gin.Context) {
 	token := ctx.GetHeader("X-Token")
 	if token == "" {
 		ctx.JSON(http.StatusBadRequest, errorResponse("X-Token header is missing"))
 		return
 	}
 
-	expirationTime, err := ac.Store.SessionRepo.CheckToken(ctx, token)
+	userID, err := ac.Store.SessionRepo.GetUserID(ctx, token)
 	if err != nil {
 		if errors.Is(err, util.ErrNotFound) {
 			ctx.JSON(http.StatusUnauthorized, errorResponse("Invalid token"))
 			return
 		}
 
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err.Error()))
+		logrus.Errorf("failed to get user id by token %s: %v", token, err)
+		ctx.JSON(http.StatusInternalServerError, errorResponse("failed to get user id by token"))
+		return
+	}
+	//Clear auth audit by user id
+	err = ac.Store.AuthAuditRepo.ClearAuthAuditByUserID(ctx, userID)
+	if err != nil {
+		logrus.Errorf("failed to clear auth audit by user id %d: %v", userID, err)
+		ctx.JSON(http.StatusInternalServerError, errorResponse("failed to clear auth audit of user"))
 		return
 	}
 
-	userIDStr, err := util.ExtractIDFromToken(token, expirationTime.String())
-	if err != nil {
-		ctx.JSON(http.StatusForbidden, errorResponse(err.Error()))
-		return
-	}
-	userID, err := strconv.ParseInt(userIDStr, 10, 64)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err.Error()))
-		return
-	}
-
-	//Clear audit of user by user id
-	err = ac.Store.AuthAuditRepo.ClearAuditByUserID(ctx, userID)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err.Error()))
-		return
-	}
-
-	ctx.JSON(http.StatusOK, successResponse("Cleared audit of user"))
+	ctx.JSON(http.StatusOK, successResponse("Auth audit of user cleared"))
 }

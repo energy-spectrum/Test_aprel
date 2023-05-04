@@ -14,6 +14,6 @@ func NewAuthAuditRouter(env *bootstrap.Env, store db.Store, group *gin.RouterGro
 		Env:   env,
 	}
 
-	group.GET("/history", ac.GetAuditEvents)
-	group.DELETE("/clear", ac.ClearAudit)
+	group.GET("/history", ac.GetAuthAudit)
+	group.DELETE("/clear", ac.ClearAuthAudit)
 }

@@ -12,29 +12,29 @@ type SessionRepo struct {
 	db *sql.DB
 }
 
-func (sr *SessionRepo) SaveToken(ctx context.Context, token string, expirationTime time.Time) error {
+func (sr *SessionRepo) SaveToken(ctx context.Context, token string, expirationTime time.Time, userID int) error {
 	_, err := sr.db.Exec(`
-	INSERT INTO sessions (token, expiration_time)
-	VALUES ($1, $2)
-	`, token, expirationTime)
+	INSERT INTO sessions (token, expiration_time, user_id)
+	VALUES ($1, $2, $3)
+	`, token, expirationTime, userID)
 
 	return err
 }
 
-func (sr *SessionRepo) CheckToken(ctx context.Context, token string) (time.Time, error) {
-	var expirationTime time.Time
+func (sr *SessionRepo) GetUserID(ctx context.Context, token string) (int, error) {
+	var userID int
 	err := sr.db.QueryRowContext(ctx, `
-	SELECT expiration_time
+	SELECT user_id
 	FROM sessions
 	WHERE token = $1 AND expiration_time > NOW()
 	LIMIT 1;
-	`, token).Scan(&expirationTime)
+	`, token).Scan(&userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return time.Time{}, util.ErrNotFound
+			return 0, util.ErrNotFound
 		}
-		return time.Time{}, err
+		return 0, err
 	}
 
-	return expirationTime, nil
+	return userID, nil
 }

@@ -13,7 +13,7 @@ type AuthAuditRepo struct {
 	db *sql.DB
 }
 
-type AuditEvent struct {
+type AuthAuditEvent struct {
 	Datatime time.Time
 	Event    EventType
 }
@@ -26,7 +26,7 @@ const (
 	Block           EventType = "block"
 )
 
-func (aar *AuthAuditRepo) WriteEvent(ctx context.Context, userID int64, event EventType) error {
+func (aar *AuthAuditRepo) WriteEvent(ctx context.Context, userID int, event EventType) error {
 	_, err := aar.db.ExecContext(ctx, `
 	INSERT INTO auth_audit (
 		user_id,
@@ -43,7 +43,7 @@ func (aar *AuthAuditRepo) WriteEvent(ctx context.Context, userID int64, event Ev
 	return nil
 }
 
-func (aar *AuthAuditRepo) GetEvents(ctx context.Context, userID int64) ([]AuditEvent, error) {
+func (aar *AuthAuditRepo) GetAuthAuditByUserID(ctx context.Context, userID int) ([]AuthAuditEvent, error) {
 	rows, err := aar.db.QueryContext(ctx, `
 	SELECT event, event_time
 	FROM auth_audit
@@ -58,9 +58,9 @@ func (aar *AuthAuditRepo) GetEvents(ctx context.Context, userID int64) ([]AuditE
 	}
 	defer rows.Close()
 
-	var events []AuditEvent
+	var events []AuthAuditEvent
 	for rows.Next() {
-		var item AuditEvent
+		var item AuthAuditEvent
 		if err := rows.Scan(
 			&item.Event,
 			&item.Datatime,
@@ -79,7 +79,7 @@ func (aar *AuthAuditRepo) GetEvents(ctx context.Context, userID int64) ([]AuditE
 	return events, nil
 }
 
-func (aar *AuthAuditRepo) ClearAuditByUserID(ctx context.Context, userID int64) error {
+func (aar *AuthAuditRepo) ClearAuthAuditByUserID(ctx context.Context, userID int) error {
 	_, err := aar.db.ExecContext(ctx, `
 	DELETE FROM auth_audit
 	WHERE user_id = $1
