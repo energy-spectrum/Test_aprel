@@ -3,10 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"time"
-
-	"app/internal/util"
 )
 
 type AuthAuditRepo struct {
@@ -14,7 +11,7 @@ type AuthAuditRepo struct {
 }
 
 type AuthAuditEvent struct {
-	Datatime time.Time
+	Datetime time.Time
 	Event    EventType
 }
 
@@ -30,12 +27,11 @@ func (aar *AuthAuditRepo) WriteEvent(ctx context.Context, userID int, event Even
 	_, err := aar.db.ExecContext(ctx, `
 	INSERT INTO auth_audit (
 		user_id,
-		event,
-		event_time
+		event
 	) VALUES (
-		$1, $2, $3
+		$1, $2
 	);
-    `, userID, event, time.Now())
+    `, userID, event)
 	if err != nil {
 		return err
 	}
@@ -51,9 +47,6 @@ func (aar *AuthAuditRepo) GetAuthAuditByUserID(ctx context.Context, userID int) 
 	ORDER BY event_time
     `, userID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, util.ErrNotFound
-		}
 		return nil, err
 	}
 	defer rows.Close()
@@ -63,12 +56,13 @@ func (aar *AuthAuditRepo) GetAuthAuditByUserID(ctx context.Context, userID int) 
 		var item AuthAuditEvent
 		if err := rows.Scan(
 			&item.Event,
-			&item.Datatime,
+			&item.Datetime,
 		); err != nil {
 			return nil, err
 		}
 		events = append(events, item)
 	}
+
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}

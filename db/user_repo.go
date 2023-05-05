@@ -61,7 +61,20 @@ func (ur *UserRepo) Block(ctx context.Context, id int) error {
 	WHERE id = $1;
 	`, id)
 	if err != nil {
-		return fmt.Errorf("failed to block user by id: %d: %v", id, err)
+		return err
+	}
+
+	return nil
+}
+
+func (ur *UserRepo) Unblock(ctx context.Context, id int) error {
+	_, err := ur.db.ExecContext(ctx, `
+	UPDATE users
+	SET blocked = false
+	WHERE id = $1;
+	`, id)
+	if err != nil {
+		return err
 	}
 
 	return nil

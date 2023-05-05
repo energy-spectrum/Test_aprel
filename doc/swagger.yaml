@@ -19,22 +19,12 @@ definitions:
       token:
         type: string
     type: object
-  controller.ErrorResponse:
-    properties:
-      error:
-        type: string
-    type: object
   controller.GetAuthAuditResponse:
     properties:
       AuthAudit:
         items:
           $ref: '#/definitions/db.AuthAuditEvent'
         type: array
-    type: object
-  controller.SuccessResponse:
-    properties:
-      message:
-        type: string
     type: object
   db.AuthAuditEvent:
     properties:
@@ -53,6 +43,16 @@ definitions:
     - Login
     - InvalidPassword
     - Block
+  response.errorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  response.successResponse:
+    properties:
+      message:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -71,27 +71,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controller.SuccessResponse'
+            $ref: '#/definitions/response.successResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/controller.ErrorResponse'
+            $ref: '#/definitions/response.errorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/controller.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/controller.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/controller.ErrorResponse'
+            $ref: '#/definitions/response.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/controller.ErrorResponse'
+            $ref: '#/definitions/response.errorResponse'
       security:
       - ApiKeyAuth: []
       summary: ClearAuthAudit
@@ -112,23 +104,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/controller.ErrorResponse'
+            $ref: '#/definitions/response.errorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/controller.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/controller.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/controller.ErrorResponse'
+            $ref: '#/definitions/response.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/controller.ErrorResponse'
+            $ref: '#/definitions/response.errorResponse'
       security:
       - ApiKeyAuth: []
       summary: GetAuthAudit
@@ -138,7 +122,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Authorize a user with login and password. Return token
+      description: It authorizes a user with login and password. Returns a token.
       parameters:
       - description: User credentials (login and password)
         in: body
@@ -156,19 +140,19 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/controller.ErrorResponse'
+            $ref: '#/definitions/response.errorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/controller.ErrorResponse'
+            $ref: '#/definitions/response.errorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/controller.ErrorResponse'
+            $ref: '#/definitions/response.errorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/controller.ErrorResponse'
+            $ref: '#/definitions/response.errorResponse'
       summary: Authorize
       tags:
       - Auth

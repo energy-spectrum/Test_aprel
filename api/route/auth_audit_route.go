@@ -4,11 +4,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"app/api/controller"
-	"app/bootstrap"
+	"app/config"
 	"app/db"
 )
 
-func NewAuthAuditRouter(env *bootstrap.Env, store db.Store, group *gin.RouterGroup) {
+func NewAuthAuditRouter(env *config.Env, store db.Store, group *gin.RouterGroup) {
 	ac := &controller.AuthAuditController{
 		Store: store,
 		Env:   env,

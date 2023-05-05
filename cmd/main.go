@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"path"
 	"runtime"
@@ -17,7 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	route "app/api/route"
-	"app/bootstrap"
+	"app/config"
 	"app/db"
 	"app/db/migration"
 )
@@ -31,9 +32,28 @@ import (
 // @in header
 // @name X-Token
 func main() {
+	setupLogrus()
+
+	env := config.NewEnv()
+
+	connection := connectToDB(env)
+
+	DBName := env.DBDriver
+	runDBMigration(connection, DBName, env.MigrationURL)
+
+	store := db.NewStore(connection)
+
+	if env.AppEnv == "development" {
+		// This is necessary to fill in the users table with hashed passwords
+		migration.FillUsers(store)
+	}
+
+	runGinServer(env, store)
+}
+
+func setupLogrus() {
 	logrus.SetFormatter(new(logrus.JSONFormatter))
 	logrus.SetReportCaller(true)
-
 	logrus.SetFormatter(&logrus.TextFormatter{
 		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
 			_, filename := path.Split(f.File)
@@ -41,30 +61,43 @@ func main() {
 			return "", filename
 		},
 	})
-	env := bootstrap.NewEnv()
-
-	db, store := connectToDB(env)
-
-	DBName := env.DBDriver
-	runDBMigration(db, DBName, env.MigrationURL)
-
-	// fill table users
-	migration.FillUsers(store)
-	//LOOK
-	timeout := time.Duration(0) * time.Second
-	runGinServer(env, timeout, store)
 }
 
-func connectToDB(env *bootstrap.Env) (*sql.DB, db.Store) {
-	logrus.Print(env.DBSource)
-	conn, err := db.Connect(env.DBDriver, env.DBSource)
-	if err != nil {
-		logrus.Fatalf("failed to connect to Postgresql: %v", err)
-	}
-	logrus.Printf("connected to Postgresql")
+func connectToDB(env *config.Env) *sql.DB {
+	var counts int
 
-	store := db.NewStore(conn)
-	return conn, store
+	for {
+		connection, err := openDB(env.DBDriver, env.DBSource)
+		if err != nil {
+			logrus.Print("postgres not yet ready ...")
+			counts++
+		} else {
+			logrus.Print("connected to Postgres!")
+			return connection
+		}
+
+		if counts > env.MaxDBConnectionAttempts {
+			logrus.Fatalf("failed to connect to Postgresql: %v", err)
+		}
+
+		logrus.Print("backing off for two seconds....")
+		time.Sleep(2 * time.Second)
+		continue
+	}
+}
+
+func openDB(dbDriver, dbSource string) (*sql.DB, error) {
+	db, err := sql.Open(dbDriver, dbSource)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.Ping()
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
 
 func runDBMigration(db *sql.DB, DBname, migrationURL string) {
@@ -78,17 +111,18 @@ func runDBMigration(db *sql.DB, DBname, migrationURL string) {
 		logrus.Fatalf("cannot create new migrate instance: %v", err)
 	}
 
-	if err = migration.Up(); err != nil && err != migrate.ErrNoChange {
+	err = migration.Up()
+	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		logrus.Fatalf("failed to run migrate up: %v", err)
 	}
 
 	logrus.Printf("db migrated successfully")
 }
 
-func runGinServer(env *bootstrap.Env, timeout time.Duration, store db.Store) {
+func runGinServer(env *config.Env, store db.Store) {
 	ginEngine := gin.Default()
 
-	// CORS middleware
+	// CORS middleware.
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
 	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
@@ -99,11 +133,11 @@ func runGinServer(env *bootstrap.Env, timeout time.Duration, store db.Store) {
 	router := ginEngine.Group("/v1/")
 	route.Setup(env, store, router)
 
-	logrus.Infof("server running on address: %s", env.ServerAddress)
+	logrus.Printf("server running on address: %s", env.ServerAddress)
 	ginEngine.Run(env.ServerAddress)
 }
 
 func connectSwaggerToGin(ginEngine *gin.Engine) {
-	// Serve the Swagger UI files
+	// Serve the Swagger UI files.
 	ginEngine.Static("/swagger/", "./doc")
 }
